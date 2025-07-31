@@ -1,13 +1,26 @@
 import requests
 from bs4 import BeautifulSoup
 import openpyxl
+import time
 
 BASE_URL = "https://sklad-parts.ru/claas/kombain-claas/claas-dominator/?limit=100&page={}"
 
-def parse_page(page):
+def parse_page(page, retries=3, delay=5):
     url = BASE_URL.format(page)
-    r = requests.get(url)
-    r.raise_for_status()
+    for attempt in range(retries):
+        try:
+            r = requests.get(url)
+            r.raise_for_status()
+            break
+        except requests.exceptions.RequestException as e:
+            status = getattr(getattr(e, 'response', None), 'status_code', None)
+            if status == 504 and attempt < retries - 1:
+                time.sleep(delay)
+                continue
+            if attempt < retries - 1:
+                time.sleep(delay)
+                continue
+            raise
     soup = BeautifulSoup(r.text, 'html.parser')
     results = []
     for div in soup.select('div.name'):
